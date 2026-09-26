@@ -1,0 +1,16 @@
+name: inmc-core
+version: '${version}'
+main: kr.inmc.core.CorePlugin
+api-version: '${apiVersion}'   # build.gradle.kts 의 inmc { paper } 에서 유도됨
+description: INMC 플러그인 공용 런타임 - Kotlin 런타임·GUI 프레임워크·아이템 참조·연동 훅·공유 저장소
+authors: [ INMC ]
+
+# core 는 어떤 플러그인도 필요로 하지 않는다. 연동 훅은 전부 리플렉션이고,
+# 상대가 없으면 훅이 조용히 비활성으로 남는다 (가이드 3.1 의 load: OMIT 규칙과 동일).
+dependencies:
+  server:
+    Vault:          { load: OMIT, required: false, join-classpath: true }
+    PlaceholderAPI: { load: OMIT, required: false, join-classpath: true }
+    MMOItems:       { load: OMIT, required: false, join-classpath: true }
+    MythicLib:      { load: OMIT, required: false, join-classpath: true }
+    ItemsAdder:     { load: OMIT, required: false, join-classpath: true }

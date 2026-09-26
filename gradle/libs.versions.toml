@@ -1,0 +1,51 @@
+# 4세대에서는 이 파일이 프로젝트마다 한 벌씩 있었고, 그래서 몬스터의 paper 버전이
+# 혼자 26.2 로 흘러가도 아무도 눈치채지 못했다. 이제 전 플러그인이 이 한 파일을 본다.
+#
+# paper 버전만은 예외로 각 플러그인의 build.gradle.kts 에서 `inmc { paper = "..." }` 로
+# 지정한다. 지원 하한이 플러그인마다 다르기 때문이다 (몬스터/숫자야구 26.1, urb 26.2).
+# 그 한 값이 컴파일 대상 · paper-plugin.yml 의 api-version · runServer 버전을 모두 만든다.
+
+[versions]
+# 플러그인들이 물고 갈 core 버전. core 워크스페이스의 build.gradle.kts 도 이 값을 읽는다.
+inmc-core = "1.0.0"
+kotlin = "2.4.10"
+shadow = "9.6.1"
+run-paper = "3.1.0"
+placeholderapi = "2.12.3"
+vault = "1.7.1"
+worldguard = "7.0.18"
+worldedit = "7.4.0"
+# 셰이딩해 들고 가는 것들. bstats 는 타이틀포지·낚시·인벤키퍼 셋이 쓴다.
+bstats = "3.2.1"
+gson   = "2.13.2"
+hikari = "7.0.2"
+sqlite = "3.50.3.0"
+mariadb = "3.5.4"
+junit = "5.11.4"
+
+[libraries]
+# 공용 런타임. includeBuild 가 소스 프로젝트로 치환하므로 publish 없이도 바로 물린다.
+inmc-core        = { module = "kr.inmc.core:inmc-core", version.ref = "inmc-core" }
+placeholderapi    = { module = "me.clip:placeholderapi",                 version.ref = "placeholderapi" }
+vault-api         = { module = "com.github.MilkBowl:VaultAPI",           version.ref = "vault" }
+worldguard-bukkit = { module = "com.sk89q.worldguard:worldguard-bukkit", version.ref = "worldguard" }
+worldguard-core   = { module = "com.sk89q.worldguard:worldguard-core",   version.ref = "worldguard" }
+worldedit-core    = { module = "com.sk89q.worldedit:worldedit-core",     version.ref = "worldedit" }
+worldedit-bukkit  = { module = "com.sk89q.worldedit:worldedit-bukkit",   version.ref = "worldedit" }
+junit-jupiter     = { module = "org.junit.jupiter:junit-jupiter",        version.ref = "junit" }
+bstats-bukkit     = { module = "org.bstats:bstats-bukkit",               version.ref = "bstats" }
+gson              = { module = "com.google.code.gson:gson",              version.ref = "gson" }
+hikaricp          = { module = "com.zaxxer:HikariCP",                    version.ref = "hikari" }
+sqlite-jdbc       = { module = "org.xerial:sqlite-jdbc",                 version.ref = "sqlite" }
+mariadb-client    = { module = "org.mariadb.jdbc:mariadb-java-client",   version.ref = "mariadb" }
+
+# build-logic 이 관례 플러그인을 컴파일할 때 쓰는 마커 아티팩트.
+# 마커를 쓰면 구현 아티팩트의 좌표가 바뀌어도 따라갈 필요가 없다.
+kotlin-gradlePlugin   = { module = "org.jetbrains.kotlin.jvm:org.jetbrains.kotlin.jvm.gradle.plugin", version.ref = "kotlin" }
+shadow-gradlePlugin   = { module = "com.gradleup.shadow:com.gradleup.shadow.gradle.plugin",           version.ref = "shadow" }
+runPaper-gradlePlugin = { module = "xyz.jpenilla.run-paper:xyz.jpenilla.run-paper.gradle.plugin",     version.ref = "run-paper" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+shadow     = { id = "com.gradleup.shadow",      version.ref = "shadow" }
+run-paper  = { id = "xyz.jpenilla.run-paper",   version.ref = "run-paper" }
