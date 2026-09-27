@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
-build/
+# 그냥 build/ 로 쓰면 build-logic/src/main/kotlin/inmc/build/ 소스까지 무시된다.
+/build/
+build-logic/build/
 bin/
 !gradle/wrapper/gradle-wrapper.jar
 
