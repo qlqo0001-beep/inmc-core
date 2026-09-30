@@ -4,6 +4,15 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 2026-09-30 — 들고 다니는 보관함(CarriedStorage)
+
+- `integration/CarriedStorage`(object) — 플레이어가 들고 다니는 보관함(커스텀아이템의 배낭)을 **가방처럼 세고 빼는** 창구. `Provider`
+  (containers) · `Container`(contents · write — 곧바로 저장) · `count` · `take` · 순수 `plan`. 사망 처리 창구(`ExtraInventory`)와 따로다 —
+  배낭 내용물은 배낭 아이템에 붙어 다니므로 죽을 때 따로 떨구면 두 번 나온다(사용자 결정: 배낭 안 물건도 인벤처럼)
+- `ItemMatcher` 의 `has`·`consumeOne` 이 가방 다음에 보관함까지 본다. `count(player, spec|test)` · `takeOne(player, spec)`(뺀 것의
+  사본 — 되돌려 주기용) 추가. `findSlot` 은 가방 칸 번호라 그대로 가방만
+- 테스트: `CarriedStorageTest`(같은 이름 교체 · 빼는 계획)
+
 ## 2026-09-26 — 유령 좌클릭
 
 - `input/Clicks` — 아이템을 쓰는 우클릭 뒤 같은 틱에 따라오는 손 흔들기 `LEFT_CLICK_AIR` 를 가린다(`isGhost(event)` · `forget(uuid)`).

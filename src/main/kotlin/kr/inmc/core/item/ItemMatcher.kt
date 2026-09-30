@@ -1,5 +1,6 @@
 package kr.inmc.core.item
 
+import kr.inmc.core.integration.CarriedStorage
 import kr.inmc.core.integration.CustomItemHook
 import kr.inmc.core.integration.MMOItemsHook
 import org.bukkit.entity.Player
@@ -11,6 +12,9 @@ import org.bukkit.inventory.ItemStack
  * Spec §75 defines the rule as "아이템 종류와 이름으로 인식" - match on material plus display
  * name. Items that carry a plugin identity (MMOItems, ItemsAdder, ...) are matched on that
  * identity instead, which is both stricter and cheaper than comparing NBT.
+ *
+ * 가진 것을 세고 빼는 [has]·[count]·[consumeOne]·[takeOne] 은 가방 다음에 **들고 다니는 보관함**([CarriedStorage] —
+ * 커스텀아이템의 배낭)까지 본다(사용자 결정 2026-09-30). [findSlot] 만 가방 칸 번호를 주므로 가방만 본다.
  */
 class ItemMatcher(
     private val mmoItems: MMOItemsHook,
@@ -72,21 +76,34 @@ class ItemMatcher(
 
     fun has(player: Player, spec: StoredItem?): Boolean {
         if (spec == null) return true
-        return findSlot(player, spec) >= 0
+        return findSlot(player, spec) >= 0 || CarriedStorage.count(player) { matches(it, spec) } > 0
     }
 
-    /** Removes exactly one matching item. Returns false when the player had none. */
-    fun consumeOne(player: Player, spec: StoredItem?): Boolean {
-        if (spec == null) return true
+    /** 가방(단축바 포함)과 들고 다니는 보관함에서 [test] 인 것의 개수. */
+    fun count(player: Player, test: (ItemStack) -> Boolean): Int =
+        player.inventory.storageContents.sumOf { if (it != null && !it.type.isAir && test(it)) it.amount else 0 } +
+            CarriedStorage.count(player, test)
+
+    fun count(player: Player, spec: StoredItem?): Int = if (spec == null) 0 else count(player) { matches(it, spec) }
+
+    /** Removes exactly one matching item — 가방 먼저, 없으면 보관함. Returns false when the player had none. */
+    fun consumeOne(player: Player, spec: StoredItem?): Boolean = spec == null || takeOne(player, spec) != null
+
+    /** 하나를 빼고 **뺀 것의 사본**(1개)을 준다 — 뒤에서 실패하면 되돌려 줄 때 쓴다. 없으면 null. 가방 먼저, 없으면 보관함. */
+    fun takeOne(player: Player, spec: StoredItem): ItemStack? {
         val slot = findSlot(player, spec)
-        if (slot < 0) return false
-        val stack = player.inventory.getItem(slot) ?: return false
-        if (stack.amount <= 1) {
-            player.inventory.setItem(slot, null)
-        } else {
-            stack.amount -= 1
-            player.inventory.setItem(slot, stack)
+        if (slot >= 0) {
+            val stack = player.inventory.getItem(slot) ?: return null
+            val taken = stack.clone().apply { amount = 1 }
+            if (stack.amount <= 1) {
+                player.inventory.setItem(slot, null)
+            } else {
+                stack.amount -= 1
+                player.inventory.setItem(slot, stack)
+            }
+            return taken
         }
-        return true
+        val taken = ArrayList<ItemStack>(1)
+        return if (CarriedStorage.take(player, 1, taken) { matches(it, spec) } == 1) taken.first() else null
     }
 }
