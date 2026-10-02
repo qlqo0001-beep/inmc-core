@@ -52,6 +52,18 @@ class CorePlugin : JavaPlugin(), InmcHost {
         // 유령 좌클릭 판정. core 가 먼저 켜지므로 LOWEST 중에서도 맨 먼저 돈다.
         Bukkit.getPluginManager().registerEvents(Clicks, this)
 
+        // 공용 개인 설정 — 공지하는 플러그인이 여럿(드랍·랜덤박스)이라 core 가 올린다.
+        kr.inmc.core.integration.PlayerSettings.register(
+            kr.inmc.core.integration.PlayerSettings.Setting(
+                key = kr.inmc.core.integration.PlayerSettings.RARE_ANNOUNCE,
+                owner = "공용",
+                label = "희귀 드랍·당첨 공지 받기",
+                icon = org.bukkit.Material.BELL,
+                description = listOf("다른 사람이 희귀 드랍·랜덤박스 당첨을 얻었다는", "서버 공지를 봅니다. 내가 얻은 것은 늘 보입니다."),
+                kind = kr.inmc.core.integration.PlayerSettings.Toggle(true),
+            ),
+        )
+
         players.load {
             ready = true
             // /reload confirm 뒤에는 이미 접속해 있는 사람이 있다. 정상 부팅에는 비어 있다.
