@@ -4,6 +4,13 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 2026-10-02 — 개인 설정 창구(PlayerSettings)
+
+- `integration/PlayerSettings` — 플러그인이 플레이어 개인 설정(켜고 끄기·고르기)을 올리고, 플레이어 메뉴(inmc-menu)가 한 화면에 모아 그린다.
+  값은 PlayerStore 네임스페이스 `settings`(열쇠의 점은 쌍점으로). 정하지 않았으면 기본값, 정의가 없으면 부른 쪽의 기본값, 권한이 필요한데 없으면 기본값.
+  바꾸면 `listen` 한 쪽에 알린다. 기본값과 같은 값은 지운다. 테스트 `PlayerSettingsTest`
+- core 가 공용 설정 **`core.rare-announce`**(희귀 드랍·당첨 공지 받기)를 올린다 — 공지하는 플러그인이 여럿(드랍·랜덤박스)이다
+
 ## 2026-09-30 — 들고 다니는 보관함(CarriedStorage)
 
 - `integration/CarriedStorage`(object) — 플레이어가 들고 다니는 보관함(커스텀아이템의 배낭)을 **가방처럼 세고 빼는** 창구. `Provider`
