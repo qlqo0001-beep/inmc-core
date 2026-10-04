@@ -4,6 +4,11 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 미배포 — TitleForge 표시명 헬퍼
+
+- `integration.TitleForgeNames.displayName(uuid, fallback)` — 닉네임 변경자는 바뀐 이름으로(리플렉션, 없으면 실명).
+  보상 공지 등 지금 접속 중인 사람을 가리킬 때만 쓴다. 저장 이름·명령어 치환은 실명 유지
+
 ## 2026-10-02 — 개인 설정 창구(PlayerSettings)
 
 - `integration/PlayerSettings` — 플러그인이 플레이어 개인 설정(켜고 끄기·고르기)을 올리고, 플레이어 메뉴(inmc-menu)가 한 화면에 모아 그린다.
