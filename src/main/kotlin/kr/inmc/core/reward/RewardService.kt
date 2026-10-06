@@ -5,6 +5,7 @@ import kr.inmc.core.reward.RewardHost
 import kr.inmc.core.reward.GiveMode
 import kr.inmc.core.reward.RewardBundle
 import kr.inmc.core.reward.RewardEntry
+import kr.inmc.core.integration.TitleForgeNames
 import kr.inmc.core.util.Text
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
@@ -155,7 +156,7 @@ class RewardService(private val ng: RewardHost) {
             for (label in payout.announced) {
                 val message = ng.messageComponent(
                     "reward-announce",
-                    ng.placeholders("player" to player.name, "subject" to gameName, "item" to label),
+                    ng.placeholders("player" to TitleForgeNames.displayName(player.uniqueId, player.name), "subject" to gameName, "item" to label),
                 )
                 Bukkit.getServer().sendMessage(message)
             }

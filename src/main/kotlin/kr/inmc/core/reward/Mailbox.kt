@@ -51,6 +51,19 @@ class Mailbox(private val ng: RewardHost) {
 
     fun isEmpty(playerId: UUID): Boolean = countOf(playerId) == 0
 
+    /**
+     * Discards every entry waiting for this player. Returns how many were dropped.
+     *
+     * Admin reset path — unclaimed achievement rewards vanish with the records.
+     * Expired entries ([purgeExpired]) drop silently; this one is always deliberate,
+     * so the caller reports the count.
+     */
+    fun discard(playerId: UUID): Int {
+        val removed = boxes.remove(playerId)?.size ?: 0
+        if (removed > 0) dirty = true
+        return removed
+    }
+
     fun deposit(playerId: UUID, entry: Entry) {
         if (entry.isEmpty()) return
         val list = boxes.computeIfAbsent(playerId) { java.util.Collections.synchronizedList(mutableListOf()) }
