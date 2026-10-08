@@ -4,6 +4,37 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 미배포 — 화폐 고르기 · 바닐라 한글 이름(2026-10-08)
+
+- `integration/EconomyHook` 에 **화폐 id 인자**: `balance/has/withdraw/deposit/format(…, currency)` — `Currencies.get(id)` 로, 비었거나 모르면 기본 길
+  (모르는 id 는 한 번만 경고). `currencies()`·`currencyName(id)`·`multiCurrency` 는 편집 화면용. 사용자 결정 "돈을 주는 곳 전부"(업적 보상·숫자게임 참가비/베팅·
+  낚시 대회 참가비·urb 상자 비용·core 보상 묶음).
+- `gui/CurrencyPick`(object) — "기본 화폐" + 화폐 목록을 `PickMenu` 로 고른다. 화폐가 하나뿐이면 부르지 않는 것이 규칙.
+- `reward/RewardEntry.currency` · `RewardService.Payout.moneyBy`(화폐 id → 금액) · `Mailbox.Entry.moneyBy` — 이름 있는 화폐의 돈은 따로 모아 그 화폐로 준다.
+  우편함은 준 것을 지워 가며 하나라도 막히면 나머지를 들고 남는다.
+- `util/VanillaNames`(object) — 바닐라 재질·엔티티의 한글 이름(`of(Material)`·`of(EntityType)`). 출처는 inmc-discord 가 받아 둔 클라이언트 번역
+  `plugins/inmc-discord/assets/objects/assets/minecraft/lang/ko_kr.json` — 없으면 null(영어 그대로). 상점·경매장 검색이 쓴다.
+
+## 미배포 — 모든 화면이 같이 좋아지는 것(2026-10-08)
+
+- `gui/Icon`: 우리가 만든 아이콘(`of`·`relabel`)은 재질이 딸고 오는 툴팁 줄(속성·내구·염색·물약·악기 …)을 숨긴다 — 검·갑옷·물약 재질 아이콘에
+  "주로 사용하는 손에 있을 때…" 가 따라 나오던 것(10-07 메모). `blank` 은 툴팁 자체를 숨긴다(빈 칸에 빈 상자가 안 뜬다). `annotate` 는 실제 아이템이라 그대로.
+- `gui/Menu`: 버튼(핸들러가 있는 칸)을 누르면 작은 클릭 소리. 개인 설정 `core.ui-click`(기본 켬)으로 끈다 — 설정 화면에 저절로 뜬다.
+- `input/ChatPrompt`: 채팅 대신 **입력창(`DialogForm`)** 을 연다 — 첫 줄이 제목, 나머지가 설명, 칸 하나. 숫자는 범위까지 검사해 틀리면 친 값을 둔 채
+  다시 연다. 빈 값·Esc = 취소. `Editors.prompt*` 를 거치는 ~210곳(여덟 플러그인)이 한 번에 바뀌었다. 채팅 경로는 `-Dinmc.prompts=chat`. 테스트 `ChatPromptSplitTest`.
+- `gui/PickMenu<T>`: 인첸트·상점이 글자 단위로 같은 것을 각자 갖던 "고르는 화면"을 올렸다. `Editors.pickHint`·`PICK_FROM`(7) — 보기가 그 이상이거나
+  가변 목록이면 `cycle` 대신 이것(사용자 2026-09-30).
+
+## 미배포 — 원자 쓰기 · 켜진 뒤 한 번 보고 · 서버 API 판 경고(2026-10-08)
+
+- `util/AtomicFiles.write(file, text)` — `.tmp` 에 다 쓴 뒤 `ATOMIC_MOVE`. `ConfigService.save`·`YamlFileStore`·`YamlFolder` 가 쓴다(지뢰 10 해소 —
+  쓰다 죽어도 잘린 YAML 이 안 남는다). 던전이 각자 하던 것을 옮겼다. 테스트 `AtomicFilesTest`
+- `integration/IntegrationReport` — 모든 플러그인이 켜진 뒤(`ServerLoadEvent`) **한 번만** "커스텀 아이템 공급처 없음"·"MMOItems 미설치".
+  `CustomItemHook.setup`·`MMOItemsHook.setup` 의 그 줄을 뺐다 — 커스텀아이템이 15번째로 켜져 열 플러그인이 거짓 "없음", 열여섯이 "미설치" 를 찍었다.
+  `CustomItemHook.hasFirstParty()`
+- `ApiVersionCheck` — 우리 플러그인의 `api-version` 이 서버가 품은 paper-api(`libraries/io/papermc/paper/paper-api/<판>/`)보다 새로우면
+  켜진 뒤 경고 한 줄(테섭 Leaf 26.2 build 46 = 26.1.2 — 업적 토스트의 `NoSuchMethodError` 가 여기서 왔다). 테스트 `ApiVersionCheckTest`
+
 ## 미배포 — TitleForge 표시명 헬퍼
 
 - `integration.TitleForgeNames.displayName(uuid, fallback)` — 닉네임 변경자는 바뀐 이름으로(리플렉션, 없으면 실명).

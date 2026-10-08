@@ -32,10 +32,8 @@ class MMOItemsHook(private val logger: Logger) {
     val isEnabled: Boolean get() = enabled
 
     fun setup() {
-        if (!Bukkit.getPluginManager().isPluginEnabled("MMOItems")) {
-            logger.info("MMOItems 미설치 - mmoitems: 참조는 스냅샷으로 대체됩니다")
-            return
-        }
+        // 미설치는 여기서 알리지 않는다 — 플러그인마다 한 줄씩 열여섯 번 찍혔다. core 가 한 번 본다(`IntegrationReport`).
+        if (!Bukkit.getPluginManager().isPluginEnabled("MMOItems")) return
         try {
             val mmoItemsClass = PluginClasses.require("MMOItems", "net.Indyuce.mmoitems.MMOItems")
             pluginInstance = mmoItemsClass.getField("plugin").get(null)

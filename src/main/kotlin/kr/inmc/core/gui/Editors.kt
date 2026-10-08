@@ -151,6 +151,12 @@ object Editors {
         }
     }
 
+    /** 고르는 화면([PickMenu])으로 들어가는 칸의 안내 줄 — `cycleHint` 의 짝. 보기가 [PICK_FROM] 개 이상이거나 가변이면 이쪽. */
+    val pickHint: List<String> = listOf("", "<yellow>▶ 클릭해서 고르기</yellow>")
+
+    /** 보기가 이 수 이상이면 좌/우클릭 순환 대신 고르는 화면(사용자 2026-09-30 "긴 목록은 들어가서 고르게"). */
+    const val PICK_FROM = 7
+
     /** Cycles a list forward on left-click and backward on right-click. */
     fun <T> cycle(event: InventoryClickEvent, options: List<T>, current: T): T {
         if (options.isEmpty()) return current

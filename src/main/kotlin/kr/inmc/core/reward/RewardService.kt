@@ -27,6 +27,8 @@ class RewardService(private val ng: RewardHost) {
     class Payout(
         val stacks: MutableList<ItemStack> = mutableListOf(),
         var money: Double = 0.0,
+        /** 이름 있는 화폐의 돈(id → 금액, 2026-10-08). [money] 는 기본 화폐. */
+        val moneyBy: LinkedHashMap<String, Double> = LinkedHashMap(),
         val commands: MutableList<String> = mutableListOf(),
         /** Labels of entries flagged for a server-wide announcement. */
         val announced: MutableList<String> = mutableListOf(),
@@ -35,7 +37,7 @@ class RewardService(private val ng: RewardHost) {
         /** Entries that could not be built because their source plugin is gone. */
         var unresolved: Int = 0,
     ) {
-        fun isEmpty(): Boolean = stacks.isEmpty() && money <= 0.0 && commands.isEmpty()
+        fun isEmpty(): Boolean = stacks.isEmpty() && money <= 0.0 && moneyBy.isEmpty() && commands.isEmpty()
     }
 
     // --- rolling ---------------------------------------------------------------
@@ -102,7 +104,9 @@ class RewardService(private val ng: RewardHost) {
                 }
                 if (built == 0) payout.unresolved++
             }
-            if (entry.money > 0.0) payout.money += entry.money
+            if (entry.money > 0.0) {
+                if (entry.currency.isBlank()) payout.money += entry.money else payout.moneyBy.merge(entry.currency, entry.money, Double::plus)
+            }
             payout.commands.addAll(entry.commands)
 
             val label = if (amount > 1) entry.label() + " x" + amount else entry.label()
@@ -149,6 +153,10 @@ class RewardService(private val ng: RewardHost) {
             if (ng.economy.isEnabled) ng.economy.deposit(player, payout.money)
             else ng.plugin.logger.warning("경제 플러그인이 없어 보상 금액을 지급하지 못했습니다: " + payout.money)
         }
+        for ((currency, amount) in payout.moneyBy) {
+            if (ng.economy.isEnabled) ng.economy.deposit(player, amount, currency)
+            else ng.plugin.logger.warning("경제 플러그인이 없어 보상 금액을 지급하지 못했습니다: $amount ($currency)")
+        }
 
         payout.commands.forEach { runCommand(it, player) }
 
@@ -184,7 +192,7 @@ class RewardService(private val ng: RewardHost) {
     /** Parks an already-resolved payout for someone who is not online. */
     fun mail(playerId: UUID, payout: Payout, source: String) {
         if (payout.isEmpty()) return
-        val entry = Mailbox.Entry(source = source, money = payout.money)
+        val entry = Mailbox.Entry(source = source, money = payout.money, moneyBy = LinkedHashMap(payout.moneyBy))
         payout.stacks.forEach { stack ->
             runCatching { stack.serializeAsBytes() }.getOrNull()?.let { entry.items.add(it) }
         }

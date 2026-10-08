@@ -27,14 +27,19 @@ class Mailbox(private val ng: RewardHost) {
         val source: String = "",
         val items: MutableList<ByteArray> = mutableListOf(),
         var money: Double = 0.0,
+        /** 이름 있는 화폐의 돈(id → 금액, 2026-10-08). 준 것은 지워 나간다. */
+        val moneyBy: MutableMap<String, Double> = LinkedHashMap(),
         val commands: MutableList<String> = mutableListOf(),
     ) {
-        fun isEmpty(): Boolean = items.isEmpty() && money <= 0.0 && commands.isEmpty()
+        fun isEmpty(): Boolean = items.isEmpty() && money <= 0.0 && moneyBy.isEmpty() && commands.isEmpty()
 
         fun describe(): String {
             val parts = mutableListOf<String>()
             if (items.isNotEmpty()) parts.add("아이템 " + items.size + "종")
             if (money > 0.0) parts.add(kr.inmc.core.util.Numbers.money(money) + "원")
+            for ((currency, amount) in moneyBy) {
+                parts.add(kr.inmc.core.economy.Currencies.get(currency)?.format(Math.round(amount)) ?: (kr.inmc.core.util.Numbers.money(amount) + " " + currency))
+            }
             if (commands.isNotEmpty()) parts.add("특전 " + commands.size + "개")
             return if (parts.isEmpty()) "빈 보상" else parts.joinToString(" · ")
         }
@@ -114,11 +119,22 @@ class Mailbox(private val ng: RewardHost) {
                 // money. If it does - Vault removed, provider rejecting the transaction - the
                 // entry has to survive holding just the money, or the reward is destroyed with
                 // a cheerful "받았습니다" and no trace of what was lost.
-                val owed = entry.money
-                val paid = owed <= 0.0 || (ng.economy.isEnabled && ng.economy.deposit(player, owed))
+                var paid = true
+                if (entry.money > 0.0) {
+                    if (ng.economy.isEnabled && ng.economy.deposit(player, entry.money)) entry.money = 0.0 else paid = false
+                }
+                if (paid) {
+                    // 이름 있는 화폐(2026-10-08) — 준 것은 지워 가며, 하나라도 막히면 나머지를 들고 남는다.
+                    val rest = entry.moneyBy.entries.iterator()
+                    while (rest.hasNext()) {
+                        val (currency, amount) = rest.next()
+                        if (amount <= 0.0 || (ng.economy.isEnabled && ng.economy.deposit(player, amount, currency))) rest.remove()
+                        else { paid = false; break }
+                    }
+                }
                 if (!paid) {
                     ng.plugin.logger.warning(
-                        "우편함 금액을 지급하지 못해 보관합니다: " + player.name + " " + owed + "원"
+                        "우편함 금액을 지급하지 못해 보관합니다: " + player.name + " " + entry.describe()
                     )
                     entry.items.clear()
                     leftBehind++
@@ -167,6 +183,8 @@ class Mailbox(private val ng: RewardHost) {
                             at = entrySection.getLong("at", 0L),
                             source = entrySection.getString("source").orEmpty(),
                             money = entrySection.getDouble("money", 0.0),
+                            moneyBy = entrySection.getConfigurationSection("money-by")
+                                ?.let { s -> s.getKeys(false).associateWithTo(LinkedHashMap()) { s.getDouble(it, 0.0) } } ?: LinkedHashMap(),
                             commands = entrySection.getStringList("commands").toMutableList(),
                         )
                         entrySection.getStringList("items").forEach { encoded ->
@@ -212,6 +230,7 @@ class Mailbox(private val ng: RewardHost) {
                 config.set(path + ".at", entry.at)
                 config.set(path + ".source", entry.source)
                 config.set(path + ".money", entry.money)
+                if (entry.moneyBy.isNotEmpty()) config.set(path + ".money-by", entry.moneyBy.toMap())
                 config.set(path + ".commands", entry.commands)
                 config.set(path + ".items", entry.items.map { Base64.getEncoder().encodeToString(it) })
             }

@@ -73,7 +73,24 @@ abstract class Menu(
         }
 
         if (!isSlotEditable(raw)) event.isCancelled = true
-        actions[raw]?.invoke(event)
+        val action = actions[raw] ?: return
+        clickSound(event)
+        action(event)
+    }
+
+    /**
+     * 버튼(핸들러가 있는 칸)을 눌렀을 때 작은 클릭 소리(2026-10-08). 빈 칸·채움은 조용하다.
+     * 개인 설정 `core.ui-click` 으로 끈다 — 설정 화면(플레이어 메뉴)에 저절로 뜬다.
+     */
+    private fun clickSound(event: InventoryClickEvent) {
+        val player = event.whoClicked as? Player ?: return
+        if (!kr.inmc.core.integration.PlayerSettings.enabled(player, kr.inmc.core.integration.PlayerSettings.UI_CLICK, true)) return
+        player.playSound(player.location, org.bukkit.Sound.UI_BUTTON_CLICK, org.bukkit.SoundCategory.MASTER, CLICK_VOLUME, CLICK_PITCH)
+    }
+
+    private companion object {
+        const val CLICK_VOLUME = 0.35f
+        const val CLICK_PITCH = 1.0f
     }
 
     fun open(player: Player) {

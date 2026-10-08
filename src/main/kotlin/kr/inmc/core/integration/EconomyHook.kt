@@ -86,4 +86,39 @@ class EconomyHook(private val logger: Logger) {
         return vault()?.let { runCatching { it.format(amount) }.getOrNull() }
             ?: kr.inmc.core.util.Numbers.money(amount)
     }
+
+    // --- 이름 있는 화폐(2026-10-08, 사용자 결정 "돈을 주는 곳 전부") ----------------------------------------------------
+    // 보상·참가비·상자 비용이 화폐 id 를 들고 온다. 비었으면 위의 기본 길(기본 화폐 → Vault). 모르는 id 는 기본 길로 물러나며 한 번만 경고한다.
+
+    private val unknownWarned = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    private fun named(currency: String?): Currency? {
+        val id = currency?.trim().orEmpty()
+        if (id.isEmpty()) return null
+        Currencies.get(id)?.let { return it }
+        if (unknownWarned.add(id)) logger.warning("화폐 '$id' 를 찾지 못해 기본 화폐로 처리합니다")
+        return null
+    }
+
+    fun balance(player: OfflinePlayer, currency: String?): Double = named(currency)?.balance(player)?.toDouble() ?: balance(player)
+
+    fun has(player: OfflinePlayer, amount: Double, currency: String?): Boolean =
+        if (amount <= 0.0) true else named(currency)?.has(player, amount.roundToLong()) ?: has(player, amount)
+
+    fun withdraw(player: OfflinePlayer, amount: Double, currency: String?): Boolean =
+        if (amount <= 0.0) true else named(currency)?.withdraw(player, amount.roundToLong(), "$source:withdraw") ?: withdraw(player, amount)
+
+    fun deposit(player: OfflinePlayer, amount: Double, currency: String?): Boolean =
+        if (amount <= 0.0) true else named(currency)?.deposit(player, amount.roundToLong(), "$source:deposit") ?: deposit(player, amount)
+
+    fun format(amount: Double, currency: String?): String = named(currency)?.format(amount.roundToLong()) ?: format(amount)
+
+    /** 화폐 id 의 보이는 이름. 비었거나 모르면 기본 화폐 이름(없으면 "돈"). */
+    fun currencyName(currency: String?): String = named(currency)?.name ?: currency()?.name ?: "돈"
+
+    /** 고를 수 있는 화폐 (id, 이름). 화폐 플러그인이 없으면 빈 목록. */
+    fun currencies(): List<Pair<String, String>> = Currencies.all().map { it.id to it.name }
+
+    /** 고를 화폐가 둘 이상인가 — 편집 화면이 화폐 칸을 보일지(하나뿐이면 묻지 않는다). */
+    val multiCurrency: Boolean get() = Currencies.all().size > 1
 }

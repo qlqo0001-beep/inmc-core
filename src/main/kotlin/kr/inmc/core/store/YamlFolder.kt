@@ -110,7 +110,7 @@ class YamlFolder(
         folder.mkdirs()
         for ((id, text) in snapshots) {
             try {
-                File(folder, "$id.yml").writeText(header + text, Charsets.UTF_8)
+                kr.inmc.core.util.AtomicFiles.write(File(folder, "$id.yml"), header + text)
             } catch (t: Throwable) {
                 logger.severe(what + " 저장 실패 (" + id + "): " + t.message)
             }

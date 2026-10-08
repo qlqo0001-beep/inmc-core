@@ -43,9 +43,8 @@ class CustomItemHook(private val logger: Logger) {
         tryOraxenLike("Oraxen", "io.th0rgal.oraxen.api.OraxenItems")
         tryEcoItems()
         setupItemsAdderBlocks()
-        if (all().isEmpty()) {
-            logger.info("커스텀 아이템 플러그인 없음 - 네임스페이스 참조는 스냅샷으로 대체됩니다")
-        }
+        // "없음" 은 여기서 알리지 않는다 — 우리 공급처(inmc-customitems)는 대개 이 플러그인보다 **나중에** 켜져서,
+        // 켤 때 찍으면 열 플러그인이 거짓 "없음" 을 남겼다. core 가 모든 플러그인이 켜진 뒤 한 번 본다(`IntegrationReport`).
     }
 
     fun identify(stack: ItemStack): ItemRef.Namespaced? = identifyAll(stack).firstOrNull()
@@ -397,6 +396,9 @@ class CustomItemHook(private val logger: Logger) {
             shared.removeAll { it.namespace.equals(provider.namespace, ignoreCase = true) }
             shared += provider
         }
+
+        /** 우리 공급처(inmc-customitems 등)가 하나라도 꽂혔나 — 켤 때 보고용. */
+        fun hasFirstParty(): Boolean = shared.isNotEmpty()
 
         /** Undoes [register]. The providing plugin calls this on disable. */
         fun unregister(namespace: String) {

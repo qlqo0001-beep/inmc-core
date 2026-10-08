@@ -20,6 +20,8 @@ class RewardEntry(
     maxAmount: Int = 1,
     var commands: MutableList<String> = mutableListOf(),
     var money: Double = 0.0,
+    /** 돈의 화폐 id(core `Currencies`). 비우면 기본 화폐(2026-10-08). */
+    var currency: String = "",
     var giveItem: Boolean = true,
     /** Broadcast to the whole server when this entry lands. */
     var announce: Boolean = false,
@@ -59,11 +61,16 @@ class RewardEntry(
     fun isEmpty(): Boolean =
         (item == null || !giveItem) && commands.isEmpty() && money <= 0.0
 
+    /** 돈 보상 글 — 화폐가 있으면 그 화폐 형식으로, 없으면 "1,000원". */
+    fun moneyLabel(): String = currency.takeIf { it.isNotBlank() }
+        ?.let { id -> kr.inmc.core.economy.Currencies.get(id)?.format(Math.round(money)) ?: (Numbers.money(money) + " " + id) }
+        ?: (Numbers.money(money) + "원")
+
     fun label(): String {
         val stored = item
         return when {
             stored != null && giveItem -> stored.label()
-            money > 0.0 -> Numbers.money(money) + "원"
+            money > 0.0 -> moneyLabel()
             commands.isNotEmpty() -> "명령어 " + commands.size + "개"
             else -> "빈 보상"
         }
@@ -77,6 +84,7 @@ class RewardEntry(
         maxAmount = maxAmount,
         commands = commands.toMutableList(),
         money = money,
+        currency = currency,
         giveItem = giveItem,
         announce = announce,
     )
@@ -88,6 +96,7 @@ class RewardEntry(
         section.set("min-amount", minAmount)
         section.set("max-amount", maxAmount)
         if (money > 0.0) section.set("money", money)
+        if (currency.isNotBlank()) section.set("currency", currency)
         if (commands.isNotEmpty()) section.set("commands", commands)
         if (!giveItem) section.set("give-item", false)
         if (announce) section.set("announce", true)
@@ -110,6 +119,7 @@ class RewardEntry(
             maxAmount = section.getInt("max-amount", section.getInt("min-amount", 1)),
             commands = section.getStringList("commands").toMutableList(),
             money = section.getDouble("money", 0.0),
+            currency = section.getString("currency").orEmpty(),
             giveItem = section.getBoolean("give-item", true),
             announce = section.getBoolean("announce", false),
         )

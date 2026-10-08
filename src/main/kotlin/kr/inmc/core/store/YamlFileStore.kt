@@ -80,9 +80,7 @@ abstract class YamlFileStore(
     private fun render(): String = header + YamlConfiguration().also { write(it) }.saveToString()
 
     private fun writeText(text: String) {
-        val target = file()
-        target.parentFile?.mkdirs()
-        target.writeText(text, Charsets.UTF_8)
+        kr.inmc.core.util.AtomicFiles.write(file(), text)
     }
 }
 

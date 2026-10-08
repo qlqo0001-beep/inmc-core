@@ -56,6 +56,9 @@ object PlayerSettings {
     /** 공용 — 희귀 드랍·당첨 공지 받기(core 가 올린다. 공지하는 플러그인이 여럿이라 어느 한 플러그인의 것이 아니다). */
     const val RARE_ANNOUNCE = "core.rare-announce"
 
+    /** 메뉴 버튼 클릭 소리(core `Menu.handleClick`, 2026-10-08). 기본 켬. */
+    const val UI_CLICK = "core.ui-click"
+
     private val settings = LinkedHashMap<String, Setting>()
     private val listeners = ConcurrentHashMap<String, (Player, String) -> Unit>()
 

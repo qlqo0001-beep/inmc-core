@@ -51,6 +51,9 @@ class CorePlugin : JavaPlugin(), InmcHost {
         Bukkit.getPluginManager().registerEvents(ProfileListener(players), this)
         // 유령 좌클릭 판정. core 가 먼저 켜지므로 LOWEST 중에서도 맨 먼저 돈다.
         Bukkit.getPluginManager().registerEvents(Clicks, this)
+        // 모든 플러그인이 켜진 뒤 한 번: 아이템 공급처 보고(커스텀아이템은 대개 나중에 켜진다) ·
+        // 서버가 품은 API 가 플러그인 컴파일 대상보다 오래됐으면 한 줄(NoSuchMethodError 를 봤을 때 먼저 의심할 곳).
+        Bukkit.getPluginManager().registerEvents(kr.inmc.core.integration.IntegrationReport.Listener(logger), this)
 
         // 공용 개인 설정 — 공지하는 플러그인이 여럿(드랍·랜덤박스)이라 core 가 올린다.
         kr.inmc.core.integration.PlayerSettings.register(
@@ -60,6 +63,17 @@ class CorePlugin : JavaPlugin(), InmcHost {
                 label = "희귀 드랍·당첨 공지 받기",
                 icon = org.bukkit.Material.BELL,
                 description = listOf("다른 사람이 희귀 드랍·랜덤박스 당첨을 얻었다는", "서버 공지를 봅니다. 내가 얻은 것은 늘 보입니다."),
+                kind = kr.inmc.core.integration.PlayerSettings.Toggle(true),
+            ),
+        )
+        // 모든 플러그인의 메뉴가 core `Menu` 라 소리도 core 가 낸다 — 끄는 설정도 여기서 올린다.
+        kr.inmc.core.integration.PlayerSettings.register(
+            kr.inmc.core.integration.PlayerSettings.Setting(
+                key = kr.inmc.core.integration.PlayerSettings.UI_CLICK,
+                owner = "공용",
+                label = "메뉴 클릭 소리",
+                icon = org.bukkit.Material.NOTE_BLOCK,
+                description = listOf("화면의 버튼을 누를 때 작은 클릭 소리를 냅니다.", "끄면 모든 플러그인의 화면이 조용해집니다."),
                 kind = kr.inmc.core.integration.PlayerSettings.Toggle(true),
             ),
         )

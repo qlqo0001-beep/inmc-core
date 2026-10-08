@@ -21,6 +21,10 @@ gson   = "2.13.2"
 hikari = "7.0.2"
 sqlite = "3.50.3.0"
 mariadb = "3.5.4"
+# 디스코드 봇(inmc-discord 가 셰이딩). 음성(opus·tink)은 뺀다.
+jda = "6.7.0"
+# 서버가 들고 있는 것을 컴파일 때만 본다(콘솔 어펜더).
+log4j = "2.25.3"
 junit = "5.11.4"
 
 [libraries]
@@ -38,6 +42,8 @@ gson              = { module = "com.google.code.gson:gson",              version
 hikaricp          = { module = "com.zaxxer:HikariCP",                    version.ref = "hikari" }
 sqlite-jdbc       = { module = "org.xerial:sqlite-jdbc",                 version.ref = "sqlite" }
 mariadb-client    = { module = "org.mariadb.jdbc:mariadb-java-client",   version.ref = "mariadb" }
+jda               = { module = "net.dv8tion:JDA",                        version.ref = "jda" }
+log4j-core        = { module = "org.apache.logging.log4j:log4j-core",    version.ref = "log4j" }
 
 # build-logic 이 관례 플러그인을 컴파일할 때 쓰는 마커 아티팩트.
 # 마커를 쓰면 구현 아티팩트의 좌표가 바뀌어도 따라갈 필요가 없다.

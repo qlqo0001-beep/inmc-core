@@ -63,10 +63,10 @@ class ConfigService(private val plugin: Plugin) {
 
     fun load(file: File): YamlConfiguration = YamlConfiguration.loadConfiguration(file)
 
+    /** 옆에 다 쓴 뒤 원자적으로 바꾼다 — 쓰다 죽어도 잘린 YAML 이 남지 않는다. */
     fun save(file: File, config: YamlConfiguration) {
         try {
-            file.parentFile?.mkdirs()
-            config.save(file)
+            kr.inmc.core.util.AtomicFiles.write(file, config.saveToString())
         } catch (e: IOException) {
             plugin.logger.severe("파일 저장 실패 (${file.name}): ${e.message}")
         }
