@@ -4,6 +4,12 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 미배포 — 커스텀아이템 능력치 다리(2026-10-09)
+
+- `CustomItemHook.Provider.stats(stack)`·`invalidateStats(uuid)` + companion `stats`·`registerStatSource`/`unregisterStatSource`/`externalStats`/`invalidateStats`/`statSources`.
+  MMOItems 기능을 쓰던 곳이 커스텀아이템으로도 되게(사용자 결정 "MI 를 쓰는 기능은 CI 로도"): 타이틀포지 칭호 능력치는 바깥 출처로, 몬스터 장비 능력치는 `stats` 로.
+  바깥 출처는 바닐라가 아닌 능력치만 — 바닐라 속성은 출처가 직접 건다.
+
 ## 미배포 — 화폐 고르기 · 바닐라 한글 이름(2026-10-08)
 
 - `integration/EconomyHook` 에 **화폐 id 인자**: `balance/has/withdraw/deposit/format(…, currency)` — `Currencies.get(id)` 로, 비었거나 모르면 기본 길

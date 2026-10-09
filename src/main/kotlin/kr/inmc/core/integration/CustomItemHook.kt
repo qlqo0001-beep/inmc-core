@@ -358,6 +358,13 @@ class CustomItemHook(private val logger: Logger) {
          * the caller to restore. False when nothing there was ours.
          */
         fun removeBlock(block: org.bukkit.block.Block): Boolean = false
+        /**
+         * [stack] 의 **최종 능력치**(공급처의 능력치 id → 값, 2026-10-09). 우리 것이 아니면 빈 맵. 몬스터가 입힌 장비의 값을 읽는다
+         * (MythicLib 가 MMOItems 장비를 읽는 것과 같은 자리). 서드파티 어댑터는 빈 맵 — 남의 능력치 체계를 짐작하지 않는다.
+         */
+        fun stats(stack: ItemStack): Map<String, Double> = emptyMap()
+        /** 바깥 능력치 출처([registerStatSource])의 값이 바뀌었다 — [playerId] 의 능력치 캐시를 버려라. */
+        fun invalidateStats(playerId: java.util.UUID) {}
     }
 
     /**
@@ -417,5 +424,49 @@ class CustomItemHook(private val logger: Logger) {
 
         /** Registered first-party namespaces. For diagnostics and tests. */
         fun registered(): List<String> = shared.map { it.namespace }
+
+        /** [stack] 을 아는 첫 공급처의 최종 능력치. See [Provider.stats]. */
+        fun stats(stack: ItemStack): Map<String, Double> {
+            for (provider in shared) {
+                val found = provider.stats(stack)
+                if (found.isNotEmpty()) return found
+            }
+            return emptyMap()
+        }
+
+        /**
+         * 바깥 능력치 출처(2026-10-09 — 타이틀포지의 칭호 능력치). 공급처(커스텀아이템)가 사람의 능력치를 셀 때 [externalStats] 를 더한다.
+         * 값은 공급처의 능력치 id(커스텀아이템 `Stat.id`, 예 `crit-chance`) → 값. **바닐라 속성(공격력·방어력 …)은 출처가 직접 걸어야 한다** —
+         * 공급처는 바닐라가 아닌 것만 받는다. 값이 바뀌면 [invalidateStats] 를 부를 것.
+         */
+        private val statSources = java.util.concurrent.ConcurrentHashMap<String, (java.util.UUID) -> Map<String, Double>>()
+
+        fun registerStatSource(source: String, supplier: (java.util.UUID) -> Map<String, Double>) {
+            statSources[source] = supplier
+        }
+
+        fun unregisterStatSource(source: String) {
+            statSources.remove(source)
+        }
+
+        /** 등록된 출처 이름. 진단용. */
+        fun statSources(): List<String> = statSources.keys.sorted()
+
+        /** 모든 바깥 출처의 합. 공급처가 사람의 능력치를 셀 때 부른다 — 출처가 하나도 없으면 빈 맵이라 값이 싸다. */
+        fun externalStats(playerId: java.util.UUID): Map<String, Double> {
+            if (statSources.isEmpty()) return emptyMap()
+            val out = LinkedHashMap<String, Double>()
+            for (supplier in statSources.values) {
+                for ((id, value) in runCatching { supplier(playerId) }.getOrDefault(emptyMap())) {
+                    if (value != 0.0) out[id] = (out[id] ?: 0.0) + value
+                }
+            }
+            return out
+        }
+
+        /** 바깥 출처가 바뀌었다 — 공급처들의 캐시를 버린다. */
+        fun invalidateStats(playerId: java.util.UUID) {
+            for (provider in shared) runCatching { provider.invalidateStats(playerId) }
+        }
     }
 }
