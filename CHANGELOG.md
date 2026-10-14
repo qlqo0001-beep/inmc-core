@@ -4,6 +4,11 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 미배포 — 가짜 접속·퇴장 사건 `FakeConnectionEvent`(2026-10-15)
+
+- `event/FakeConnectionEvent(player, joining, var message?)` — 투명을 켜고 끌 때의 가짜 접속·퇴장. essentials 가 쏘고, 타이틀포지가 문구를 진짜 모양으로, 디스코드가 채널에 올린다.
+  사용자 "투명 상태로 진입하면 디스코드에서 플레이어가 나갔다는 글이 올라와야 하는데 없다". 더하기만 — 다른 jar 와 바이너리 호환.
+
 ## 미배포 — 기능 하나 빼기 · 우편 서명 되돌림(2026-10-15)
 
 - `Realms.unregisterFeature(key)` — 한 플러그인 안의 기능마다 켜고 끌 때(essentials).
