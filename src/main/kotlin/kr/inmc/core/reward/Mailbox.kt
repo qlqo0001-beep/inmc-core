@@ -26,7 +26,7 @@ class Mailbox(private val ng: RewardHost) {
      * 하나만 연다. 넘길 때 origin 은 호스트 플러그인 이름이라 숫자야구 화면은 제 몫만 센다.
      * - 꽂히는 순간([Mail.listen]) · 파일을 다 읽은 순간([load]) · 저장 차례([flush]) 에 제 메모리에 남은 것을 넘기고 비운다.
      *   [load] 는 비동기라 꽂힘보다 늦게 끝날 수 있다 — 그때 읽힌 것도 읽힌 직후 넘어간다. 넘긴 것은 지우므로 두 번 가지 않는다.
-     * - 공급처가 받지 않으면(false) 여기 남는다 — 세기·받기·버리기는 늘 여기 + 공급처를 합친다. 다음 차례에 다시 넘긴다.
+     * - 공급처가 받지 않으면(false) 여기 남는다 — 세기·받기·버리기는 늘 여기 + 공급처를 합친다(접속 알림만 예외 — [notifyOnJoin]). 다음 차례에 다시 넘긴다.
      * - 넘긴 것은 메모리에서 바로 빠지지만 **파일에서는 다음 저장 차례에** 빠진다 — 그 사이 공급처가 제 DB 에 쓴다. 그 사이 죽으면 다음
      *   부팅에 다시 넘기고, 공급처는 [Mail.Parcel.key](= 이 우편함의 id·시각)로 걸러 한 통으로 둔다(잃기보다 다시 넘기기).
      *   다 읽기 전에는 쓰지 않는다 — 읽기 전 상태로 파일을 덮지 않게.
@@ -92,7 +92,10 @@ class Mailbox(private val ng: RewardHost) {
     @Volatile
     private var dirty = false
 
-    fun countOf(playerId: UUID): Int = (boxes[playerId]?.size ?: 0) + (if (Mail.available) Mail.count(playerId, origin) else 0)
+    fun countOf(playerId: UUID): Int = localCount(playerId) + (if (Mail.available) Mail.count(playerId, origin) else 0)
+
+    /** 공급처로 넘기지 못해 여기 남아 있는 것만. 공급처가 없으면 전부가 여기다. */
+    private fun localCount(playerId: UUID): Int = boxes[playerId]?.size ?: 0
 
     fun entriesOf(playerId: UUID): List<Entry> {
         val local = boxes[playerId]?.let { list -> synchronized(list) { list.toList() } }.orEmpty()
@@ -409,9 +412,15 @@ class Mailbox(private val ng: RewardHost) {
         return config.saveToString()
     }
 
-    /** Ticker hook: nudges anyone who logged in with unclaimed rewards. */
+    /**
+     * Ticker hook: nudges anyone who logged in with unclaimed rewards.
+     *
+     * 우편 공급처(inmc-essentials)가 꽂혀 있으면 넘긴 몫은 그쪽 접속 알림(`/우편`)이 이미 세므로 **여기 남은 것만** 센다 — 전에는
+     * 제 몫 + 공급처 몫을 합쳐 세어 같은 소포를 두 번 알렸다(2026-10-14). 남은 것은 공급처가 거절해 아직 못 넘긴 것뿐이라 평소에는 0 이다.
+     * 공급처가 없으면 전부가 여기라 전과 같다 — [countOf] 가 아니라 [localCount] 하나로 두 경우를 다 덮는다.
+     */
     fun notifyOnJoin(player: Player) {
-        val count = countOf(player.uniqueId)
+        val count = localCount(player.uniqueId)
         if (count <= 0) return
         ng.tell(player, "mailbox-waiting", ng.placeholders("count" to count.toString()))
     }

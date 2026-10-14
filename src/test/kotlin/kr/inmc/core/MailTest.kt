@@ -45,6 +45,8 @@ class MailTest {
     private val registered = ArrayList<Mail.Provider>()
     private val boxes = ArrayList<Mailbox>()
     private val player = UUID.randomUUID()
+    /** 호스트의 `tell` 에 온 것 — 키와 `{count}` 를 채운 값. */
+    private val tells = ArrayList<Pair<String, String>>()
 
     private fun <T : Mail.Provider> register(provider: T): T = provider.also {
         Mail.register(it)
@@ -68,8 +70,16 @@ class MailTest {
                 "placeholders" -> {
                     @Suppress("UNCHECKED_CAST")
                     val pairs = args!![0] as Array<Pair<String, String>>
-                    val name = pairs.first { it.first == "player" }.second
-                    Placeholders { raw -> listOf("{플레이어네임}", "{플레이어}", "{player}").fold(raw) { text, alias -> text.replace(alias, name) } }
+                    Placeholders { raw ->
+                        pairs.fold(raw) { text, (key, value) ->
+                            val aliases = if (key == "player") listOf("{플레이어네임}", "{플레이어}", "{player}") else listOf("{$key}")
+                            aliases.fold(text) { t, alias -> t.replace(alias, value) }
+                        }
+                    }
+                }
+                "tell" -> {
+                    tells += (args!![1] as String) to ((args.getOrNull(2) as? Placeholders)?.apply("{count}") ?: "")
+                    null
                 }
                 else -> null
             }
@@ -256,6 +266,35 @@ class MailTest {
         box.deposit(player, entry("초기화 뒤"))
         Mail.register(memory)
         assertEquals(listOf("초기화 뒤"), memory.parcels.map { it.third.source })
+    }
+
+    @Test
+    fun `접속 알림은 공급처가 있으면 넘기지 못한 것만 센다`() {
+        val box = mailbox()
+        box.accept(emptyMap())
+        box.deposit(player, entry("1"))
+        box.deposit(player, entry("2"))
+        box.notifyOnJoin(proxyPlayer(player))
+        assertEquals(listOf("mailbox-waiting" to "2"), tells, "공급처가 없으면 전부 여기 것이라 다 센다")
+        tells.clear()
+
+        val memory = register(Memory())
+        assertEquals(2, memory.parcels.size, "꽂히면 남은 것을 넘긴다")
+        box.notifyOnJoin(proxyPlayer(player))
+        assertTrue(tells.isEmpty(), "넘긴 몫은 공급처의 접속 알림이 세므로 여기서는 알리지 않는다 — 전에는 같은 소포를 두 번 알렸다")
+
+        memory.accept = false
+        box.deposit(player, entry("3"))
+        assertEquals(3, box.countOf(player))
+        box.notifyOnJoin(proxyPlayer(player))
+        assertEquals(listOf("mailbox-waiting" to "1"), tells, "공급처가 거절해 여기 남은 것만 센다")
+        tells.clear()
+
+        memory.accept = true
+        Mail.register(memory)
+        assertEquals(3, memory.parcels.size, "다시 꽂히면 남은 것이 넘어간다")
+        box.notifyOnJoin(proxyPlayer(player))
+        assertTrue(tells.isEmpty(), "넘어가면 여기 알림도 끊긴다")
     }
 
     private fun proxyPlayer(id: UUID): Player = Proxy.newProxyInstance(Player::class.java.classLoader, arrayOf(Player::class.java)) { _, method, _ ->
