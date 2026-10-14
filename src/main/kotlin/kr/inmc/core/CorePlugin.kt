@@ -54,6 +54,12 @@ class CorePlugin : JavaPlugin(), InmcHost {
         // 모든 플러그인이 켜진 뒤 한 번: 아이템 공급처 보고(커스텀아이템은 대개 나중에 켜진다) ·
         // 서버가 품은 API 가 플러그인 컴파일 대상보다 오래됐으면 한 줄(NoSuchMethodError 를 봤을 때 먼저 의심할 곳).
         Bukkit.getPluginManager().registerEvents(kr.inmc.core.integration.IntegrationReport.Listener(logger), this)
+        // 투명 거울 — 다른 스레드가 묻는 투명 여부. 접속에서 채우고 퇴장 한 틱 뒤 지운다. 켤 때 전원 한 번 + 20틱마다 다시 읽는다
+        // (메타데이터만 건 CMI 등도 다른 스레드가 보게).
+        kr.inmc.core.integration.Vanish.Listener(this).also {
+            Bukkit.getPluginManager().registerEvents(it, this)
+            it.start()
+        }
 
         // 공용 개인 설정 — 공지하는 플러그인이 여럿(드랍·랜덤박스)이라 core 가 올린다.
         kr.inmc.core.integration.PlayerSettings.register(

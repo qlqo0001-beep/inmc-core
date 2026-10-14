@@ -34,7 +34,8 @@ class CustomItemHook(private val logger: Logger) {
      */
     private fun all(): List<Provider> = if (shared.isEmpty()) providers else shared + providers
 
-    val isEnabled: Boolean get() = all().isNotEmpty()
+    /** 아이템을 **알아보는** 공급처가 있나(만들기 전용 공급처는 세지 않는다 — 통계·"연동 중" 표시용). */
+    val isEnabled: Boolean get() = all().any { !it.makeOnly }
 
     fun setup() {
         providers.clear()
@@ -365,6 +366,20 @@ class CustomItemHook(private val logger: Logger) {
         fun stats(stack: ItemStack): Map<String, Double> = emptyMap()
         /** 바깥 능력치 출처([registerStatSource])의 값이 바뀌었다 — [playerId] 의 능력치 캐시를 버려라. */
         fun invalidateStats(playerId: java.util.UUID) {}
+
+        /**
+         * 이 공급처가 만들 수 있는 아이템 id 전부(2026-10-10 — `namespace:` 를 뺀 id). 지급 명령의 제안·검증이 쓴다(essentials `/지급`).
+         * 서드파티 어댑터는 빈 목록 — 목록을 줄 API 가 제각각이라 짐작하지 않는다.
+         */
+        fun ids(): Collection<String> = emptyList()
+
+        /**
+         * **만들기 전용** 공급처(2026-10-13) — [create] 만 답하고 [identify] 는 늘 null 이다(낚시의 도장 찍힌 물고기 · 인첸트 부여서 · 상점 블록처럼
+         * 한 번 만들 때마다 굴리는 아이템. 알아보기 시작하면 모든 플러그인의 보상 캡처가 실물을 참조로 바꿔 받을 때마다 다시 굴린다).
+         * 참조로 **맞춰 보는** 쪽(찾기·지우기·업적 `holding`·GUI 캡처)은 이 공급처의 참조를 제안하거나 받으면 안 된다 — [CustomItemHook.makeOnlyNamespaces].
+         * [hasFirstParty]·[isEnabled] 도 세지 않는다.
+         */
+        val makeOnly: Boolean get() = false
     }
 
     /**
@@ -404,8 +419,11 @@ class CustomItemHook(private val logger: Logger) {
             shared += provider
         }
 
-        /** 우리 공급처(inmc-customitems 등)가 하나라도 꽂혔나 — 켤 때 보고용. */
-        fun hasFirstParty(): Boolean = shared.isNotEmpty()
+        /** 아이템을 **알아보는** 우리 공급처(inmc-customitems)가 하나라도 꽂혔나 — 켤 때 보고·"연동 중" 표시용. 만들기 전용([Provider.makeOnly])은 세지 않는다. */
+        fun hasFirstParty(): Boolean = shared.any { !it.makeOnly }
+
+        /** 만들기 전용 공급처의 네임스페이스(소문자). 참조로 맞춰 보는 명령(찾기·지우기)이 제안에서 빼고 입력을 거절할 때 쓴다. See [Provider.makeOnly]. */
+        fun makeOnlyNamespaces(): Set<String> = shared.filter { it.makeOnly }.mapTo(LinkedHashSet()) { it.namespace.lowercase() }
 
         /** Undoes [register]. The providing plugin calls this on disable. */
         fun unregister(namespace: String) {
@@ -424,6 +442,16 @@ class CustomItemHook(private val logger: Logger) {
 
         /** Registered first-party namespaces. For diagnostics and tests. */
         fun registered(): List<String> = shared.map { it.namespace }
+
+        /** 우리 공급처마다 만들 수 있는 id(namespace → ids, 꽂은 순서). 목록을 주지 않는 공급처는 빠진다. See [Provider.ids]. */
+        fun ids(): Map<String, Collection<String>> {
+            val out = LinkedHashMap<String, Collection<String>>()
+            for (provider in shared) {
+                val ids = runCatching { provider.ids() }.getOrDefault(emptyList())
+                if (ids.isNotEmpty()) out[provider.namespace] = ids
+            }
+            return out
+        }
 
         /** [stack] 을 아는 첫 공급처의 최종 능력치. See [Provider.stats]. */
         fun stats(stack: ItemStack): Map<String, Double> {

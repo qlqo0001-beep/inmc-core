@@ -26,7 +26,10 @@ object IntegrationReport {
     fun report(logger: Logger) {
         val manager = Bukkit.getPluginManager()
         if (!CustomItemHook.hasFirstParty() && THIRD_PARTY_ITEMS.none { manager.isPluginEnabled(it) }) {
-            logger.info("커스텀 아이템 공급처 없음(inmc-customitems·ItemsAdder·Nexo·Oraxen·EcoItems) — 네임스페이스 참조는 스냅샷으로 대체됩니다")
+            // 만들기 전용 공급처(inmcfish:·inmcenchant:·inmcshop:)는 hasFirstParty 에 안 세지만 그 참조는 그대로 만든다 — 스냅샷 대체는 그 밖의 네임스페이스만.
+            val makeOnly = CustomItemHook.makeOnlyNamespaces()
+            val tail = if (makeOnly.isEmpty()) "" else "(만들기 전용 ${makeOnly.joinToString("·") { "$it:" }} 은 그대로 만듭니다)"
+            logger.info("아이템을 알아보는 커스텀 아이템 공급처 없음(inmc-customitems·ItemsAdder·Nexo·Oraxen·EcoItems) — inmc:·서드파티 네임스페이스 참조는 스냅샷으로 대체됩니다$tail")
         }
         if (!manager.isPluginEnabled("MMOItems")) {
             logger.info("MMOItems 미설치 — mmoitems: 참조는 스냅샷으로 대체됩니다")

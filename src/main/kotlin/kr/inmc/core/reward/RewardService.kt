@@ -6,6 +6,7 @@ import kr.inmc.core.reward.GiveMode
 import kr.inmc.core.reward.RewardBundle
 import kr.inmc.core.reward.RewardEntry
 import kr.inmc.core.integration.TitleForgeNames
+import kr.inmc.core.integration.Vanish
 import kr.inmc.core.util.Text
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
@@ -166,7 +167,13 @@ class RewardService(private val ng: RewardHost) {
                     "reward-announce",
                     ng.placeholders("player" to TitleForgeNames.displayName(player.uniqueId, player.name), "subject" to gameName, "item" to label),
                 )
-                Bukkit.getServer().sendMessage(message)
+                // 받은 사람이 투명이면 그를 볼 수 있는 사람(과 콘솔)에게만 — 공지가 투명을 들키게 하지 않는다(2026-10-10).
+                if (!Vanish.isVanished(player)) {
+                    Bukkit.getServer().sendMessage(message)
+                } else {
+                    Bukkit.getConsoleSender().sendMessage(message)
+                    for (online in Bukkit.getOnlinePlayers()) if (Vanish.canSee(online, player)) online.sendMessage(message)
+                }
             }
         }
 

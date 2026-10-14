@@ -1,6 +1,7 @@
 package kr.inmc.core.reward
 
-import kr.inmc.core.reward.RewardHost
+import kr.inmc.core.integration.Mail
+import kr.inmc.core.util.AtomicFiles
 import org.bukkit.Bukkit
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Player
@@ -19,6 +20,47 @@ import java.util.concurrent.ConcurrentHashMap
  * moment.
  */
 class Mailbox(private val ng: RewardHost) {
+
+    /*
+     * 우편 공급처(core [Mail], inmc-essentials)가 꽂혀 있으면 이 우편함은 **그리로 넘기는 얇은 층**이다(2026-10-10) — 사람은 우편함
+     * 하나만 연다. 넘길 때 origin 은 호스트 플러그인 이름이라 숫자야구 화면은 제 몫만 센다.
+     * - 꽂히는 순간([Mail.listen]) · 파일을 다 읽은 순간([load]) · 저장 차례([flush]) 에 제 메모리에 남은 것을 넘기고 비운다.
+     *   [load] 는 비동기라 꽂힘보다 늦게 끝날 수 있다 — 그때 읽힌 것도 읽힌 직후 넘어간다. 넘긴 것은 지우므로 두 번 가지 않는다.
+     * - 공급처가 받지 않으면(false) 여기 남는다 — 세기·받기·버리기는 늘 여기 + 공급처를 합친다. 다음 차례에 다시 넘긴다.
+     * - 넘긴 것은 메모리에서 바로 빠지지만 **파일에서는 다음 저장 차례에** 빠진다 — 그 사이 공급처가 제 DB 에 쓴다. 그 사이 죽으면 다음
+     *   부팅에 다시 넘기고, 공급처는 [Mail.Parcel.key](= 이 우편함의 id·시각)로 걸러 한 통으로 둔다(잃기보다 다시 넘기기).
+     *   다 읽기 전에는 쓰지 않는다 — 읽기 전 상태로 파일을 덮지 않게.
+     * - 명령어는 넘길 때 호스트의 별칭(`{플레이어}`·`{플레이어네임}` …)을 `{player}` 로 바꿔 넘긴다 — 공급처는 `{player}` 만 안다([Mail]).
+     * - 공급처가 없을 때 [discard] 하면 그 사람을 적어 두었다가(파일에도) 다시 꽂히는 순간 공급처 쪽 몫을 버린다 — 넘긴 것이 초기화를 피하지 않게.
+     */
+    private val mailKey = "core-mailbox#" + UUID.randomUUID()
+
+    /** 시험용 — 서버 없이 origin 을 정한다. 평소에는 호스트 플러그인 이름. */
+    internal var originOverride: String? = null
+
+    private val origin: String get() = originOverride ?: ng.plugin.name
+
+    @Volatile
+    private var loaded = false
+
+    init {
+        Mail.listen(mailKey) { onMailChanged() }
+    }
+
+    /**
+     * 꽂힘·빠짐 알림. 메인에서만 넘긴다 — 다른 스레드에서 꽂혔으면 메인으로 넘긴다. 아니면 메인의 [claimLocal] 과 같은 통을 동시에
+     * 집어 한쪽은 주고 한쪽은 공급처로 보내 두 번 받게 된다. 서버가 없으면(시험) 그 자리에서.
+     */
+    private fun onMailChanged() {
+        val server: org.bukkit.Server? = Bukkit.getServer()
+        if (server != null && !server.isPrimaryThread) {
+            if (ng.plugin.isEnabled) Bukkit.getGlobalRegionScheduler().run(ng.plugin) { onMailChanged() }
+            return
+        }
+        if (!Mail.available) return
+        applyPendingDiscards()
+        forwardToMail()
+    }
 
     class Entry(
         val id: String = UUID.randomUUID().toString().substring(0, 8),
@@ -50,9 +92,13 @@ class Mailbox(private val ng: RewardHost) {
     @Volatile
     private var dirty = false
 
-    fun countOf(playerId: UUID): Int = boxes[playerId]?.size ?: 0
+    fun countOf(playerId: UUID): Int = (boxes[playerId]?.size ?: 0) + (if (Mail.available) Mail.count(playerId, origin) else 0)
 
-    fun entriesOf(playerId: UUID): List<Entry> = boxes[playerId]?.toList().orEmpty()
+    fun entriesOf(playerId: UUID): List<Entry> {
+        val local = boxes[playerId]?.let { list -> synchronized(list) { list.toList() } }.orEmpty()
+        if (!Mail.available) return local
+        return local + Mail.entries(playerId, origin).map { (id, parcel) -> entryOf(id, parcel) }
+    }
 
     fun isEmpty(playerId: UUID): Boolean = countOf(playerId) == 0
 
@@ -62,20 +108,44 @@ class Mailbox(private val ng: RewardHost) {
      * Admin reset path — unclaimed achievement rewards vanish with the records.
      * Expired entries ([purgeExpired]) drop silently; this one is always deliberate,
      * so the caller reports the count.
+     *
+     * 공급처가 없으면 그쪽 몫은 세지 못한다 — 그 사람을 적어 두고(파일에도) 다시 꽂히는 순간 버린다([applyPendingDiscards]).
      */
     fun discard(playerId: UUID): Int {
         val removed = boxes.remove(playerId)?.size ?: 0
         if (removed > 0) dirty = true
+        if (Mail.available) {
+            if (pendingDiscards.remove(playerId)) dirty = true
+            return removed + Mail.discard(playerId, origin)
+        }
+        if (pendingDiscards.add(playerId)) dirty = true
         return removed
+    }
+
+    /** 공급처가 없을 때 [discard] 한 사람들 — 꽂히면 공급처 쪽 몫을 버린다. 공급처가 없는 동안 들어온 보상은 여기 있어 휩쓸리지 않는다. */
+    private val pendingDiscards: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
+
+    /** 꽂힌 뒤(메인). 넘기기([forwardToMail])보다 **먼저** — 공급처가 없는 동안 여기 쌓인 새 보상까지 버리지 않게. */
+    private fun applyPendingDiscards() {
+        if (pendingDiscards.isEmpty()) return
+        val from = origin
+        for (playerId in pendingDiscards.toList()) {
+            Mail.discard(playerId, from)
+            pendingDiscards.remove(playerId)
+        }
+        dirty = true
     }
 
     fun deposit(playerId: UUID, entry: Entry) {
         if (entry.isEmpty()) return
+        // 공급처가 있으면 그리로 — 한도로 지우기는 없다(공급처는 보상을 지우지 않는다). 거절하면 아래로 떨어져 여기 남는다.
+        if (Mail.available && Mail.deposit(playerId, parcelFor(entry))) return
         val list = boxes.computeIfAbsent(playerId) { java.util.Collections.synchronizedList(mutableListOf()) }
         synchronized(list) {
             list.add(entry)
             // Oldest first out, so the reward someone just won is never the one that is dropped.
-            while (list.size > ng.rewardSettings.mailboxLimit) list.removeAt(0)
+            // 공급처가 있는데 거절해 여기 남는 것은 지우지 않는다 — 한도는 공급처가 없을 때만(공급처 쪽은 보상을 지우지 않는다).
+            if (!Mail.available) while (list.size > ng.rewardSettings.mailboxLimit) list.removeAt(0)
         }
         dirty = true
     }
@@ -87,6 +157,13 @@ class Mailbox(private val ng: RewardHost) {
      * Returns the number of entries fully claimed.
      */
     fun claimAll(player: Player): ClaimResult {
+        val local = claimLocal(player)
+        if (!Mail.available) return local
+        val remote = Mail.claim(player, origin) ?: return local
+        return ClaimResult(local.claimed + remote.claimed, local.leftBehind + remote.leftBehind, local.partial || remote.partial)
+    }
+
+    private fun claimLocal(player: Player): ClaimResult {
         val list = boxes[player.uniqueId] ?: return ClaimResult(0, 0, false)
         var claimed = 0
         var leftBehind = 0
@@ -170,7 +247,7 @@ class Mailbox(private val ng: RewardHost) {
             val file = ng.io.file("data", "mailbox.yml")
             if (file.exists()) ng.io.load(file) else YamlConfiguration()
         }) { config ->
-            boxes.clear()
+            val read = HashMap<UUID, MutableList<Entry>>()
             config.getConfigurationSection("players")?.let { players ->
                 for (raw in players.getKeys(false)) {
                     val id = runCatching { UUID.fromString(raw) }.getOrNull() ?: continue
@@ -193,31 +270,124 @@ class Mailbox(private val ng: RewardHost) {
                         }
                         if (!entry.isEmpty()) list.add(entry)
                     }
-                    if (list.isNotEmpty()) boxes[id] = list
+                    if (list.isNotEmpty()) read[id] = list
                 }
             }
-            dirty = false
+            val discards = config.getStringList("pending-discard").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
+            accept(read, discards)
             then()
         }
     }
 
-    fun flush() {
-        if (!dirty) return
-        dirty = false
-        val text = serialize()
-        ng.io.asyncRun { write(text) }
+    /**
+     * 파일을 다 읽은 뒤(메인). 읽은 것을 앞에, **읽기 전에 들어와 아직 여기 있는 것을 뒤에** 붙인다(바꿔 끼우면 그것이 사라진다 — 파일에는
+     * 없던 것이다, 다 읽기 전에는 쓰지 않으므로). 공급처가 이미 있으면 곧바로 넘긴다 — 꽂힘이 읽기보다 먼저 끝났어도 읽힌 것이 여기 갇히지
+     * 않는다. 꽂힘이 먼저였다면 그때 넘긴 것은 메모리에서 이미 지워졌고 파일에는 없던 것이라 두 번 가지 않는다.
+     */
+    internal fun accept(read: Map<UUID, List<Entry>>, discards: Collection<UUID> = emptyList()) {
+        val early = HashMap(boxes)
+        boxes.clear()
+        for ((id, list) in read) {
+            if (list.isNotEmpty()) boxes[id] = java.util.Collections.synchronizedList(list.toMutableList())
+        }
+        var merged = false
+        for ((id, list) in early) {
+            val pending = synchronized(list) { list.toList() }
+            if (pending.isEmpty()) continue
+            val target = boxes.computeIfAbsent(id) { java.util.Collections.synchronizedList(mutableListOf()) }
+            synchronized(target) { target.addAll(pending) }
+            merged = true
+        }
+        pendingDiscards.addAll(discards)
+        dirty = merged
+        loaded = true
+        if (Mail.available) {
+            applyPendingDiscards()
+            forwardToMail()
+        }
     }
 
+    /**
+     * 메모리에 남은 것을 공급처로 넘긴다. 받은 것만 메모리에서 지운다. 파일에서는 **다음 저장 차례에** 빠진다(dirty) — 그 사이 공급처가
+     * 제 DB 에 쓴다. 그 사이 죽으면 다음 부팅에 다시 넘기고 공급처가 [Mail.Parcel.key] 로 거른다(곧바로 비워 쓰면 공급처가 쓰기 전에 죽을 때
+     * 두 곳 다에서 사라진다). 내려간 플러그인의 알림이 남아 있어도 던지지 않는다.
+     */
+    internal fun forwardToMail(): Int {
+        if (boxes.isEmpty()) return 0
+        val from = origin
+        var moved = 0
+        for ((playerId, list) in boxes) {
+            for (entry in synchronized(list) { list.toList() }) {
+                if (Mail.deposit(playerId, parcelFor(entry, from))) {
+                    synchronized(list) { list.remove(entry) }
+                    moved++
+                }
+            }
+            if (synchronized(list) { list.isEmpty() }) boxes.remove(playerId, list)
+        }
+        if (moved > 0) {
+            dirty = true
+            runCatching { ng.plugin.logger.info("우편함의 " + moved + "통을 우편 공급처로 옮겼습니다") }
+        }
+        return moved
+    }
+
+    /** 이 우편함의 한 통 → 공급처의 우편. 명령어의 호스트 별칭은 `{player}` 로(공급처는 그것만 안다 — [Mail]). */
+    private fun parcelFor(entry: Entry, from: String = origin): Mail.Parcel =
+        parcelOf(entry, from, if (entry.commands.isEmpty()) null else ng.placeholders("player" to Mail.PLAYER_TOKEN))
+
+    fun flush() {
+        // 다 읽기 전에 쓰면 읽기 전 상태(빈 우편함)로 파일을 덮는다.
+        if (!loaded) return
+        if (dirty) {
+            dirty = false
+            val text = serialize()
+            ng.io.asyncRun { write(text) }
+        }
+        // 쓴 **뒤에** 넘긴다 — 지금 넘긴 것은 다음 차례에 파일에서 빠진다(forwardToMail).
+        if (Mail.available && boxes.isNotEmpty()) forwardToMail()
+    }
+
+    /**
+     * 끌 때. 우편 알림도 뗀다(내려간 플러그인의 우편함이 남아 불리지 않게). 쓰기는 **io 워커 줄의 맨 뒤에 넣고 기다린다** — 메인에서 바로
+     * 쓰면 앞서 줄 선 옛 스냅샷([flush])이 뒤에 쓰여 마지막 상태를 덮는다. 워커가 이미 내려갔으면 여기서 쓴다.
+     */
     fun flushBlocking() {
-        runCatching { write(serialize()) }
-            .onFailure { ng.plugin.logger.severe("우편함 저장 실패: " + it.message) }
+        Mail.unlisten(mailKey)
+        if (!loaded) return
+        val text = serialize()
         dirty = false
+        val done = java.util.concurrent.CountDownLatch(1)
+        var failure: Throwable? = null
+        val queued = runCatching {
+            ng.io.asyncRun {
+                try {
+                    write(text)
+                } catch (t: Throwable) {
+                    failure = t
+                } finally {
+                    done.countDown()
+                }
+            }
+        }.isSuccess
+        if (!queued) {
+            runCatching { write(text) }.onFailure { failure = it }
+        } else if (!done.await(BLOCKING_WAIT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)) {
+            // 줄에 든 채로 남는다 — 워커를 닫을 때(ConfigService.shutdown) 옛 스냅샷들 다음에 쓰인다. 여기서 또 쓰면 그 옛것이 뒤에 덮는다.
+            ng.plugin.logger.warning("우편함 저장이 " + BLOCKING_WAIT_SECONDS + "초 안에 끝나지 않았습니다 — io 워커를 닫을 때 마저 씁니다")
+            return
+        }
+        failure?.let { ng.plugin.logger.severe("우편함 저장 실패: " + it.message) }
+    }
+
+    /** 시험용 — 알림을 뗀다. */
+    internal fun close() {
+        Mail.unlisten(mailKey)
     }
 
     private fun write(text: String) {
-        val file = ng.io.file("data", "mailbox.yml")
-        file.parentFile?.mkdirs()
-        file.writeText(text, Charsets.UTF_8)
+        // 통째로 바꿔치기 — 쓰다 죽으면 잘린 파일이 남아 다음 부팅에 우편함이 통째로 사라진다(지뢰 10).
+        AtomicFiles.write(ng.io.file("data", "mailbox.yml"), text)
     }
 
     private fun serialize(): String {
@@ -235,6 +405,7 @@ class Mailbox(private val ng: RewardHost) {
                 config.set(path + ".items", entry.items.map { Base64.getEncoder().encodeToString(it) })
             }
         }
+        if (pendingDiscards.isNotEmpty()) config.set("pending-discard", pendingDiscards.map { it.toString() })
         return config.saveToString()
     }
 
@@ -271,5 +442,37 @@ class Mailbox(private val ng: RewardHost) {
         }
         if (removed > 0) dirty = true
         return removed
+    }
+    internal companion object {
+        /** 끌 때 io 워커의 쓰기를 기다리는 한도. */
+        private const val BLOCKING_WAIT_SECONDS = 10L
+
+        /**
+         * 이 우편함의 한 통 → 공급처의 우편. 보상이라 만료가 없다(공급처는 보상을 지우지 않는다). [Mail.Parcel.key] 는 id·시각 —
+         * 다시 넘겨도 공급처가 한 통으로 둔다. [player] 가 있으면 명령어에 걸어 호스트의 별칭을 `{player}` 로 바꾼다.
+         */
+        fun parcelOf(entry: Entry, origin: String, player: kr.inmc.core.util.Placeholders? = null): Mail.Parcel = Mail.Parcel(
+            kind = Mail.Kind.REWARD,
+            origin = origin,
+            source = entry.source,
+            items = entry.items.toList(),
+            money = entry.money,
+            moneyBy = LinkedHashMap(entry.moneyBy),
+            commands = if (player == null) entry.commands.toList() else entry.commands.map { player.apply(it) },
+            at = entry.at,
+            expiresAt = null,
+            key = entry.id + "@" + entry.at,
+        )
+
+        /** 공급처의 우편 → 화면이 그리는 [Entry](숫자야구 우편함 화면·PAPI 가 읽는다). 고쳐도 공급처에는 닿지 않는다. */
+        fun entryOf(id: String, parcel: Mail.Parcel): Entry = Entry(
+            id = id,
+            at = parcel.at,
+            source = parcel.source,
+            items = parcel.items.toMutableList(),
+            money = parcel.money,
+            moneyBy = LinkedHashMap(parcel.moneyBy),
+            commands = parcel.commands.toMutableList(),
+        )
     }
 }

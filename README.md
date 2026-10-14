@@ -38,12 +38,12 @@ dependencies:
 
 | 패키지 | 내용 |
 |---|---|
-| `gui/` | `Menu`(자작 인벤토리 베이스) · `Icon` |
+| `gui/` | `Menu`(자작 인벤토리 베이스) · `Icon` · `RewardBundleEditor`(보상 묶음 편집 화면, 2026-10-10) |
 | `listener/` | `MenuListener` — 모든 메뉴의 단일 라우팅 지점 · `ProfileListener` — core 가 등록하는 유일한 리스너 |
 | `input/` | `ChatPrompt` — 채팅 한 줄 입력 |
 | `config/` | `ConfigService` — 워커 1개로 직렬화된 비동기 I/O |
 | `item/` | `ItemRef` · `ItemResolver` · `ItemMatcher` · `StoredItem` |
-| `integration/` | `PluginClasses` · `MMOItemsHook` · `CustomItemHook` · `EconomyHook` (전부 리플렉션) |
+| `integration/` | `PluginClasses` · `MMOItemsHook` · `CustomItemHook` · `EconomyHook` (전부 리플렉션) · `Mail`(우편 창구) · `Vanish`(투명 창구) · `Selections`(WorldEdit 선택, 리플렉션) — 2026-10-10 |
 | `util/` | `Text`(MiniMessage) · `Numbers` · `Durations` · `Placeholders` |
 | `rank/` | `RankService` · `RankBoard` · `RankConfig` · `ResetSchedule` · `Outcome` · `Rankable` |
 | `reward/` | `RewardService` · `Mailbox` · `RewardTable` · `RewardEntry` · `RewardHost` |

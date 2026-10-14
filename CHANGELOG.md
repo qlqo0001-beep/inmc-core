@@ -4,6 +4,41 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 미배포 — CMI 대체 준비: 우편·투명·WorldEdit 선택·보상 편집 화면(2026-10-10)
+
+inmc-essentials(CMI 대체)가 기대는 것들. 계획 `~/.claude/plans/inmc-essentials.md` 3절.
+
+- `integration/Mail`(object) — **우편 창구**. 공급처 하나(`Provider`: deposit·count·entries·claim·discard)가 꽂히고(`register`/`unregister` — 꽂은 그것일 때만),
+  보상을 미루는 쪽은 `send(playerId, origin, source, stacks, money, moneyBy, commands)` 로 넣는다(공급처가 없거나 넣을 것이 없으면 false — 제 길로).
+  `Parcel`(kind REWARD/LETTER · origin = 플러그인 이름 · source · 보낸 사람 · 글 · 아이템 바이트 · 돈 · 화폐별 돈 · 명령어 · 시각 · 만료). `listen(owner){}` 는 꽂힘·빠짐마다.
+  모든 메서드는 메인에서 불러도 된다 — **공급처의 deposit 은 빠르고 돌아오면 잃지 않아야 한다**(DB 쓰기 스레드에 넘김).
+- `reward/Mailbox` — 공급처가 있으면 넣기·세기·읽기·받기·버리기를 `Mail` 로(origin = 호스트 플러그인 이름). 꽂히는 순간·파일을 다 읽은 순간·저장 차례에
+  제 메모리에 남은 것을 넘기고 비운 뒤 곧바로 빈 파일을 쓴다. 읽기(비동기)가 꽂힘보다 늦게 끝나도 읽힌 것까지 넘어가고 두 번 가지 않는다.
+  공급처가 거절한 것은 제 우편함에 남고 다음 차례에 다시 넘긴다. 한도로 오래된 것 지우기는 공급처가 없을 때만. **다 읽기 전에는 파일을 쓰지 않는다**
+  (읽기 전 상태로 덮지 않게). 파일 쓰기는 `AtomicFiles`. 공개 API·`Entry` 는 그대로(숫자야구 화면·PAPI·업적이 쓴다). 테스트 `MailTest`
+- `integration/Vanish`(object) — **투명 창구**. 메타데이터 `vanished`(CMI·SuperVanish 관례, 어느 플러그인 값이든 하나라도 참이면 투명) ·
+  `isVanished` · `canSee(viewer?, target)`(권한 `inmc.vanish.see` 또는 자기 자신, 누가 보는지 모르면 숨김) · `visibleOnline` · `visibleNames`(제안용) ·
+  `set(plugin, player, vanished)`(메타데이터 + 바뀌었을 때만 메인에서 알림) · `listen(owner){ player, vanished -> }` · `unregisterAll(owner)`.
+  `paper-plugin.yml` 에 권한 `inmc.vanish.see`(기본 op). 숨기기(hidePlayer)는 essentials vanish 기능이 한다. 테스트 `VanishTest`
+  **스레드**: 메타데이터는 스레드에 안전하지 않아 메인만 읽는다. 메인의 읽기·`set`·알림이 `ConcurrentHashMap<UUID, Boolean>` 거울을 고치고, 다른 스레드의
+  `isVanished`(디스코드·비동기 채팅)는 거울로 답한다(메인이 아직 못 본 사람은 보이는 것). 거울은 접속 MONITOR 에서 채우고 **퇴장 한 틱 뒤** 지운다
+  (core 가 `Vanish.Listener` 를 등록 — 퇴장 MONITOR 까지는 메타데이터·거울 그대로라 타이틀포지가 읽는다. 그 한 틱 안에 다시 들어왔으면 새 객체로 다시 적는다).
+  켤 때 접속자 전원을 한 번 읽고 **20틱마다 전원을 다시 읽는다**(`Listener.start`, `REFRESH_TICKS`) — `set` 을 거치지 않고 메타데이터만 건 `/cmi vanish` 도 다른 스레드가
+  1초 안에 본다(메타데이터만 읽음 — 권한·PAPI 는 안 묻는다). 다른 스레드의 `set` 은 **접속 중인 사람만** 거울에 적고, 넘긴 알림을 스케줄러가 못 받으면(나간 사람) 지운다.
+- `integration/Selections`(object) — WorldEdit/FAWE 선택을 **리플렉션으로** 읽는다(`of(player): Selection?`·`available`). 선택이 없거나 덜 됐거나 WorldEdit 이
+  없으면 null(던지지 않는다). 메서드는 그 플러그인 인스턴스마다 한 번 찾는다. 쓰는 곳(예정): essentials 포탈·영역, urb 범위, 던전 방 저장
+- `CustomItemHook.Provider.ids()`(기본 빈 목록) + companion `ids(): Map<namespace, ids>` — 지급 명령의 제안·검증용(커스텀아이템이 답한다)
+- `CustomItemHook.Provider.makeOnly`(기본 false, 2026-10-13) — **만들기 전용** 공급처 표시(`identify` 늘 null · `create` 만: `inmcfish`·`inmcenchant`·`inmcshop`).
+  `hasFirstParty()`·인스턴스 `isEnabled` 는 이것을 세지 않는다(만들기 전용만 있으면 "커스텀아이템 없음" — 몬스터·타이틀포지의 "연동 중" 표시·bStats 가 거짓 참이 되던 것).
+  companion `makeOnlyNamespaces()` — 참조로 맞춰 보는 명령(essentials `/찾기`·`/비우기`)이 제안에서 빼고 입력을 거절한다. 테스트 `CustomItemHookMakeOnlyTest`
+  `IntegrationReport` 의 부팅 알림도 고침(2026-10-14) — "아이템을 **알아보는** 공급처 없음 … inmc:·서드파티 참조는 스냅샷" 에 꽂힌 만들기 전용 네임스페이스는 "그대로 만듭니다" 라고 덧붙인다(전 문구는 `inmcfish:` 도 스냅샷이 되는 듯 읽혔다).
+- `gui/RewardBundleEditor`(open class) — urb 보상 화면의 쓰는 법(빈 칸에 올리고 확인 · 제거 모드 · 쪽 · 상세: 확률/가중치·수량·참조 플러그인·참조/스냅샷·
+  아이템 지급 여부·공지·명령어·돈과 화폐)을 core `RewardBundle` 위로. 지급 방식 순환·N개 추첨 개수. **보상에는 사본이 들어가고 올린 아이템은 돌려준다.**
+  값 입력은 `DialogForm`. 생성자 `(owner, viewer, title, bundle, resolver, save, back)`. 테스트 `RewardBundleEditorLayoutTest`
+  하위가 바꾸는 것: `commandHints`(명령어 입력창 설명) · `showAnnounce`(기본 true — false 면 상세의 공지 전환 칸과 ★ 줄, "＋ 돈·명령어 보상" 안내의 '공지' 를 숨긴다. 업적이 씀, 공지는 연출 층 전담)
+- `reward/RewardService.give` 의 보상 공지(`reward-announce`, 타이틀포지 이름)는 받은 사람이 투명이면 그를 볼 수 있는 사람과 콘솔에게만 —
+  투명이 새는 곳 막기(C8). 투명이 아니면 예전처럼 `Bukkit.getServer().sendMessage`. `RewardHost`·공개 API 는 그대로
+
 ## 미배포 — 커스텀아이템 능력치 다리(2026-10-09)
 
 - `CustomItemHook.Provider.stats(stack)`·`invalidateStats(uuid)` + companion `stats`·`registerStatSource`/`unregisterStatSource`/`externalStats`/`invalidateStats`/`statSources`.

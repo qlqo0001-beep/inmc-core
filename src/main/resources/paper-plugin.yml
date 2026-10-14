@@ -14,3 +14,9 @@ dependencies:
     MMOItems:       { load: OMIT, required: false, join-classpath: true }
     MythicLib:      { load: OMIT, required: false, join-classpath: true }
     ItemsAdder:     { load: OMIT, required: false, join-classpath: true }
+
+# 투명(core integration/Vanish) — 투명인 사람을 목록·명령 제안·알림에서 보는 권한. 주인은 inmc-essentials 의 vanish 기능.
+permissions:
+  inmc.vanish.see:
+    description: 투명 상태인 플레이어를 목록·명령 제안·알림에서 봅니다
+    default: op
