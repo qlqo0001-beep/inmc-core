@@ -4,6 +4,18 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 미배포 — 관리 화면 공용 부품: 아이템 올리기 · 가방 클릭 · 색·입자·물약 고르기(2026-10-14)
+
+사용자 요청 "손에 든 아이템으로 등록하는 것을 GUI 에 올리는 방식으로 · 목록은 Shift+클릭으로 · 색은 RGB 로 · 입자·물약은 GUI 로 고르고 한국 이름으로" — 모든 INMC 플러그인이 쓴다.
+
+- `gui/Menu.onPlayerInventoryClick(event)` — 창 아래 **내 가방 칸**을 눌렀을 때. true 면 사건 취소(아이템 제자리). 기본 false 라 지금 화면은 그대로.
+- `gui/ItemInputMenu` — 아이템 올리기(27칸): 가방의 아이템을 누르거나 커서로 놓으면 사본이 올라가고 [등록] 이 `onSubmit`.
+- `gui/ColorPickMenu` — 색표 27(타이틀포지 칭호 꾸미기의 색표를 늘린 것) + R·G·B 한 칸씩(Shift ±16 · 숫자키 직접) · 밝게/어둡게 · `#RRGGBB`/`r,g,b`/색 이름 직접 입력,
+  미리보기는 물들인 가죽 갑옷. `parse(raw)` 는 순수(`ColorPickParseTest`).
+- `gui/ParticlePickMenu` · `util/Particles` — 입자 전부를 한국어 이름(표 — 바닐라 번역이 없다)·대표 아이콘으로, 우클릭은 창을 닫고 눈앞에 3초 뿌린 뒤 다시 연다.
+  `Particles.spawn` 은 색·블록 자료가 필요한 입자에 기본 자료를 넣는다.
+- `gui/PotionPickMenu` · `util/PotionEffects` — 효과 전부를 게임 번역 이름·효과 색 물약으로, 우클릭은 나에게 5초.
+
 ## 미배포 — CMI 대체 준비: 우편·투명·WorldEdit 선택·보상 편집 화면(2026-10-10)
 
 inmc-essentials(CMI 대체)가 기대는 것들. 계획 `~/.claude/plans/inmc-essentials.md` 3절.

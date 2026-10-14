@@ -56,6 +56,14 @@ abstract class Menu(
     /** True when the player may shift-click items in from their own inventory. */
     open fun acceptsShiftInsert(): Boolean = false
 
+    /**
+     * 열린 화면 아래의 **내 가방 칸**을 눌렀다 — 화면이 그 아이템을 쓰면 true(사건은 취소되고 아이템은 제자리). 기본은 false(바닐라대로).
+     *
+     * 사용자 요청 2026-10-14: 관리 화면에 아이템을 넣을 때 손에 들고 버튼을 누르는 대신, **목록에 더하는 화면은 가방의 아이템을 Shift+클릭**,
+     * 하나를 정하는 화면은 [ItemInputMenu] 에 올려놓는 방식으로. 아이템을 옮기지 않고 **사본만** 쓴다 — 관리자 가방에서 빠지지 않는다.
+     */
+    open fun onPlayerInventoryClick(event: InventoryClickEvent): Boolean = false
+
     open fun onDrag(event: InventoryDragEvent) {
         val topSize = size
         val touchesLocked = event.rawSlots.any { it < topSize && !isSlotEditable(it) }
@@ -67,6 +75,10 @@ abstract class Menu(
         val inTop = raw in 0 until size
 
         if (!inTop) {
+            if (onPlayerInventoryClick(event)) {
+                event.isCancelled = true
+                return
+            }
             // Clicking one's own inventory: only allow shift-inserting into menus that want it.
             if (event.isShiftClick && !acceptsShiftInsert()) event.isCancelled = true
             return
