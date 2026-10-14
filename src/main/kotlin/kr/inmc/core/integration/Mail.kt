@@ -48,8 +48,6 @@ object Mail {
      * @param at 넣은 시각(밀리초). [expiresAt] 이 null 이면 지우지 않는다.
      * @param key 넣은 쪽의 고유 열쇠(없으면 null). 같은 사람·[origin]·[key] 의 우편을 이미 쥐고 있으면 공급처는 **새로 넣지 않고 true** —
      *   core [Mailbox] 는 넘긴 것을 다음 저장 차례에야 제 파일에서 지우므로, 그 사이 죽으면 다음 부팅에 같은 것을 다시 넘긴다.
-     * @param realm 이 우편을 받을 **모드**(core [Realms], 2026-10-15) — 보상을 번 모드. null 이면 받는 사람의 지금(마지막) 모드.
-     *   공급처는 우편함을 모드마다 따로 둘 때 이것으로 넣을 칸을 고른다(모드끼리 우편으로 물건이 넘어가지 않게).
      */
     data class Parcel(
         val kind: Kind,
@@ -65,7 +63,6 @@ object Mail {
         val at: Long = System.currentTimeMillis(),
         val expiresAt: Long? = null,
         val key: String? = null,
-        val realm: String? = null,
     ) {
         /** 받을 것이 하나도 없다(글만 있는 편지는 비지 않았다). */
         fun isEmpty(): Boolean =
@@ -173,7 +170,6 @@ object Mail {
         money: Double = 0.0,
         moneyBy: Map<String, Double> = emptyMap(),
         commands: List<String> = emptyList(),
-        realm: String? = null,
     ): Boolean {
         if (provider == null) return false
         val items = stacks.filter { !it.type.isAir && it.amount > 0 }
@@ -183,7 +179,6 @@ object Mail {
             Parcel(
                 kind = Kind.REWARD, origin = origin, source = source, items = items,
                 money = money.coerceAtLeast(0.0), moneyBy = moneyBy.filterValues { it > 0.0 }, commands = commands.toList(),
-                realm = realm,
             ),
         )
     }

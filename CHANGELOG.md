@@ -4,10 +4,12 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
-## 미배포 — 우편의 받을 모드 · 기능 하나 빼기(2026-10-15)
+## 미배포 — 기능 하나 빼기 · 우편 서명 되돌림(2026-10-15)
 
-- `Mail.Parcel.realm`·`Mail.send(…, realm)` — 받을 모드(보상을 번 모드). null 이면 받는 사람의 지금 모드. 우편함을 모드마다 나누는 공급처(essentials)가 넣을 칸을 고른다.
 - `Realms.unregisterFeature(key)` — 한 플러그인 안의 기능마다 켜고 끌 때(essentials).
+- 3465c2c 에서 `Mail.Parcel` 에 `realm` 칸과 `Mail.send(…, realm)` 를 더했다가 **되돌렸다** — 데이터 클래스 생성자·기본값 함수(`send$default`)의 서명이
+  바뀌어 옛 core 로 빌드된 플러그인 jar(던전·화폐·인첸트·메뉴·숫자게임·상점·urb·커스텀아이템·낚시)가 우편 길에서 `NoSuchMethodError` 가 된다.
+  **core 의 공개 서명은 더하기만 한다**(새 함수·새 클래스). 받을 모드는 우편 공급처(essentials) 안에서만 넘긴다.
 
 ## 미배포 — 모드 창구 `Realms` · 장소 이름 창구 `PlaceNames` · `ItemCodec`(2026-10-15)
 
