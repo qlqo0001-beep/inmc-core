@@ -4,6 +4,16 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 미배포 — 모드 창구 `Realms` · 장소 이름 창구 `PlaceNames` · `ItemCodec`(2026-10-15)
+
+inmc-worlds(Multiverse 3종 대체 — 서버를 모드로 나눠 모드마다 다른 서버처럼)의 1단계. 계획 `~/.claude/plans/validated-questing-sparrow.md`.
+- `integration/Realms` — 공급처 하나(inmc-worlds) + 기능 등록부(`Feature`, 관리자가 "모드마다 따로 / 같이" 를 고름 · 기본 따로). 쓰는 쪽은 `scope(key, uuid)` 를
+  열쇠에 붙인다(`key(base, scope)` = `base@모드`). **공급처가 없거나 "같이" 면 `""` — 오늘의 열쇠 그대로**라 플러그인을 하나씩 바꿔도 안전하다.
+  `scope` 는 공급처가 던지면 그대로 던진다(같이 칸으로 물러나면 물건이 샌다). `RealmsTest` 7개.
+- `event/RealmChangeEvent`(몸을 바꾼 뒤) · `RealmFeatureChangeEvent`(토글이 바뀐 즉시 — 재시작 없이).
+- `integration/PlaceNames` — 월드·생물군계 한글 이름. 공급처 = 타이틀포지 `places.yml`. essentials `/바이옴찾기` 의 리플렉션을 이것으로 바꿨다.
+- `item/ItemCodec` — essentials `InvData` 의 칸·효과 직렬화를 올렸다(inmc-worlds 가 같은 것을 쓴다). essentials 는 이것을 부른다 — 저장 모양은 그대로.
+
 ## 미배포 — 우편함 접속 알림은 공급처가 있으면 남은 것만 센다(2026-10-14)
 
 - `reward/Mailbox.notifyOnJoin` — 우편 공급처(inmc-essentials)가 꽂혀 있으면 넘긴 몫은 그쪽 접속 알림(`/우편`)이 이미 세므로 **여기 남은 것만** 센다.
