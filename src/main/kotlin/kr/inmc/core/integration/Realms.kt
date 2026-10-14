@@ -116,6 +116,12 @@ object Realms {
         synchronized(features) { features.values.removeIf { it.owner == owner } }
     }
 
+    /** 기능 하나만 뺀다 — 한 플러그인 안의 여러 기능이 같은 묶음 이름을 쓸 때(essentials 처럼 기능마다 켜고 끈다). */
+    @JvmStatic
+    fun unregisterFeature(key: String) {
+        synchronized(features) { features.remove(key) }
+    }
+
     /** 올린 순서대로. */
     @JvmStatic
     fun features(): List<Feature> = synchronized(features) { features.values.toList() }

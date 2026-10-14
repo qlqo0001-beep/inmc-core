@@ -4,6 +4,11 @@ core 에 **무엇이 지금 있는지**는 상위 `ARCHITECTURE.md` 가 진실�
 
 ---
 
+## 미배포 — 우편의 받을 모드 · 기능 하나 빼기(2026-10-15)
+
+- `Mail.Parcel.realm`·`Mail.send(…, realm)` — 받을 모드(보상을 번 모드). null 이면 받는 사람의 지금 모드. 우편함을 모드마다 나누는 공급처(essentials)가 넣을 칸을 고른다.
+- `Realms.unregisterFeature(key)` — 한 플러그인 안의 기능마다 켜고 끌 때(essentials).
+
 ## 미배포 — 모드 창구 `Realms` · 장소 이름 창구 `PlaceNames` · `ItemCodec`(2026-10-15)
 
 inmc-worlds(Multiverse 3종 대체 — 서버를 모드로 나눠 모드마다 다른 서버처럼)의 1단계. 계획 `~/.claude/plans/validated-questing-sparrow.md`.
